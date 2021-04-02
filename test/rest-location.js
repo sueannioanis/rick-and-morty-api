@@ -3,23 +3,23 @@ process.env.NODE_ENV = 'test'
 const chai = require('chai')
 const { expect } = chai
 const chaiHttp = require('chai-http')
+
 const server = require('../server')
+const { message } = require('../utils/helpers')
 
 chai.use(chaiHttp)
-
-const { message } = require('../utils/helpers')
 
 const test = async (pathname = '') => chai.request(server).get(`/api/location/${pathname}`)
 
 const keys = ['id', 'name', 'type', 'dimension', 'residents', 'url', 'created']
 
-const expectStructure = body => {
+const expectStructure = (body) => {
   expect(body).to.be.an('object')
   expect(body.info).to.be.an('object')
   expect(body.results).to.be.an('array')
 }
 
-describe('/GET All locations', () => {
+describe('[REST][Location] All locations', () => {
   it('should get all locations', async () => {
     const { body } = await test()
 
@@ -40,7 +40,7 @@ describe('/GET All locations', () => {
   })
 })
 
-describe('/GET Single location with id: 1', () => {
+describe('[REST][Location] Single location with id: 1', () => {
   it('should get one location with id: 1', async () => {
     const { body } = await test(1)
 
@@ -55,7 +55,7 @@ describe('/GET Single location with id: 1', () => {
   })
 })
 
-describe('/GET five locations', () => {
+describe('[REST][Location] five locations', () => {
   it('should get five locations with an array', async () => {
     const ids = [1, 2, 3, 4, 5]
     const { body } = await test(ids)
@@ -63,7 +63,7 @@ describe('/GET five locations', () => {
     expect(body).to.be.an('array')
     expect(body).to.have.lengthOf(ids.length)
 
-    body.forEach(item => {
+    body.forEach((item) => {
       expect(ids).to.include(item.id)
     })
   })
@@ -75,13 +75,13 @@ describe('/GET five locations', () => {
     expect(body).to.be.an('array')
     expect(body).to.have.lengthOf(ids.replace(/,/g, '').length)
 
-    body.forEach(item => {
+    body.forEach((item) => {
       expect(ids).to.include(item.id)
     })
   })
 })
 
-describe('/GET Error messages', () => {
+describe('[REST][Location] Error messages', () => {
   it('should get an error message with id:12345', async () => {
     const res = await test('12345')
 
@@ -123,12 +123,12 @@ describe('/GET Error messages', () => {
   })
 })
 
-describe('/GET locations with single query', () => {
+describe('[REST][Location] locations with single query', () => {
   it('should get locations with name: Earth', async () => {
     const { body } = await test('?name=Earth')
 
     expectStructure(body)
-    body.results.forEach(char => {
+    body.results.forEach((char) => {
       expect(char).to.have.property('name').include('Earth')
     })
   })
@@ -137,7 +137,7 @@ describe('/GET locations with single query', () => {
     const { body } = await test('?type=planet')
 
     expectStructure(body)
-    body.results.forEach(char => {
+    body.results.forEach((char) => {
       expect(char).to.have.property('type').include('Planet')
     })
   })
@@ -146,18 +146,18 @@ describe('/GET locations with single query', () => {
     const { body } = await test('?dimension=C-137')
 
     expectStructure(body)
-    body.results.forEach(char => {
+    body.results.forEach((char) => {
       expect(char).to.have.property('dimension').include('C-137')
     })
   })
 })
 
-describe('/GET locations with multiple queries', () => {
+describe('[REST][Location] locations with multiple queries', () => {
   it('should get locations with name: Earth, type: Planet, dimension: C-137', async () => {
     const { body } = await test('?name=earth&type=planet&dimension=c-137')
 
     expectStructure(body)
-    body.results.forEach(char => {
+    body.results.forEach((char) => {
       expect(char).to.have.property('name').include('Earth')
       expect(char).to.have.property('type').include('Planet')
       expect(char).to.have.property('dimension').include('C-137')
@@ -165,12 +165,12 @@ describe('/GET locations with multiple queries', () => {
   })
 })
 
-describe('/GET special characters', () => {
+describe('[REST][Location] special characters', () => {
   it('should get location with name: (', async () => {
     const { body } = await test('?name=(')
 
     expectStructure(body)
-    body.results.forEach(char => {
+    body.results.forEach((char) => {
       expect(char).to.have.property('name').include('(')
     })
   })
@@ -179,39 +179,27 @@ describe('/GET special characters', () => {
     const { body } = await test('?name=-')
 
     expectStructure(body)
-    body.results.forEach(char => {
+    body.results.forEach((char) => {
       expect(char).to.have.property('name').include('-')
     })
   })
 })
 
-describe('/GET pages', () => {
+describe('[REST][Location] pages', () => {
   it('should get page: 1', async () => {
     const { body } = await test('?page=1')
 
     expectStructure(body)
-    expect(body.info.prev).to.have.lengthOf(0)
-    expect(body.info.next.slice(-1)).to.equal('2')
+    expect(body.info.prev).to.be.null
+    expect(body.info.next).to.be.null
     expect(body.results).to.have.lengthOf(20)
 
     expect(body.results[0]).to.include({ id: 1 })
     expect(body.results[19]).to.include({ id: 20 })
   })
-
-  it('should get page: 2', async () => {
-    const { body } = await test('?page=2')
-
-    expectStructure(body)
-    expect(body.info.prev.slice(-1)).to.equal('1')
-    expect(body.info.next.slice(-1)).to.equal('3')
-    expect(body.results).to.have.lengthOf(20)
-
-    expect(body.results[0]).to.include({ id: 21 })
-    expect(body.results[19]).to.include({ id: 40 })
-  })
 })
 
-describe('/GET ?page=12345 ', async () => {
+describe('[REST][Location] ?page=12345 ', async () => {
   const res = await test('?page=12345')
 
   expect(res).to.have.status(404)

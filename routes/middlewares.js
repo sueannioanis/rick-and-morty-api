@@ -1,16 +1,12 @@
-const { site, message, collection } = require('../utils/helpers')
+const { query } = require('express-validator')
 
-const pagination = (req, res, next) => {
-  req.payload = {
-    page: (req.query.page > 0 && req.query.page) || 1
-  }
-  req.payload.skip = (req.payload.page * collection.limit) - collection.limit
+const { getAll, getById } = require('../handlers/operations')
+const { baseUrl, message, collection } = require('../utils/helpers')
 
-  next()
-}
+const sanitizeQueryParams = (model) => query(collection.queries[model]).trim()
 
-const checkData = (req, res, next) => {
-  const { count, page } = req.payload
+const generatePageUrls = (req, res, next) => {
+  const { results, count, page } = req.payload
   const pages = Math.ceil(count / collection.limit)
 
   if (page > pages) {
@@ -18,50 +14,43 @@ const checkData = (req, res, next) => {
     return
   }
 
-  req.payload.pages = pages
-
-  next()
-}
-
-const showData = (req, res) => {
-  const { results, count, page, pages } = req.payload
   const path = req.path.replace(/\//g, '')
 
   const qr = Object.keys(req.query).reduce((acc, key) => {
     // if the query isn't undefined and it's an allowed query for the path
     if (req.query[key] && collection.queries[path].includes(key)) {
       // add it to the url
-      acc+= `&${key}=${req.query[key]}`
+      return acc + `&${key}=${req.query[key]}`
     }
+
     return acc
   }, '')
 
-  // Show data
-  res.json({
+  req.payload = {
     info: {
       count,
       pages,
-      next: page >= pages ? '' : `${site}${req.path}?page=${parseInt(page) + 1}${qr}`,
-      prev: page < 2 ? '' : `${site}${req.path}?page=${parseInt(page) - 1}${qr}`
+      next: page >= pages ? null : `${baseUrl}${req.path}?page=${parseInt(page) + 1}${qr}`,
+      prev: page < 2 ? null : `${baseUrl}${req.path}?page=${parseInt(page) - 1}${qr}`,
     },
-    results
-  })
+    results,
+  }
+  next()
 }
 
-const checkArray = (req, res, next) => {
+const validateArrayParams = (req, res, next) => {
   const { id } = req.params
 
   if (/\[.+\]$/.test(id)) {
     try {
       req.params.id = JSON.parse(id)
       return next()
-    }
-    catch (e) {
+    } catch (e) {
       return res.status(500).json({ error: message.badArray })
     }
   }
 
-  if ( id.includes(',') && !/\[|\]/.test(id) && id.length > 1 ) {
+  if (id.includes(',') && !/\[|\]/.test(id) && id.length > 1) {
     req.params.id = id.split(',').map(Number)
     return next()
   }
@@ -73,9 +62,11 @@ const checkArray = (req, res, next) => {
   next()
 }
 
-module.exports = {
-  pagination,
-  showData,
-  checkData,
-  checkArray
+const sendRes = (req, res) => {
+  res.json(req.payload)
 }
+
+module.exports = (model) => ({
+  find: [sanitizeQueryParams(model), getAll, generatePageUrls, sendRes],
+  findById: [validateArrayParams, getById, sendRes],
+})
